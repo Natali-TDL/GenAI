@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CT-GenAI Lab — Technique Classifier (Ch.2.1.2)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; padding: 1rem; max-width: 1000px; margin: 0 auto; }
+header { padding: 1.5rem; background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; border-radius: 12px; margin-bottom: 1rem; }
+.eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; opacity: 0.55; margin-bottom: 6px; }
+header h1 { font-size: 1.5rem; }
+.subtitle { opacity: 0.8; font-size: 0.9rem; margin-top: 4px; }
+.card-shell { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+.q-meta { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.badge { font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 4px; }
+.badge-concept { background: #ede7f6; color: #4527a0; }
+.badge-medium { background: #fff8e1; color: #f57f17; }
+h2 { color: #1a1a2e; margin-bottom: 0.5rem; }
+.intro { font-size: 0.9rem; margin-bottom: 1.1rem; }
+.intro b { color:#1a1a2e; }
+.tray-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; color:#888; margin:0.4rem 0 0.5rem; }
+.tray { display:flex; flex-direction:column; gap:0.5rem; min-height:40px; padding:0.5rem; border:1.5px dashed #d0d0d0; border-radius:10px; background:#fafafa; margin-bottom:1.25rem; }
+.tray.dragover { border-color:#1565c0; background:#e3f2fd; }
+.prompt-card { background:#fff; border:1.5px solid #e0e0e0; border-radius:8px; padding:0.7rem 0.9rem; cursor:grab; transition:border-color 0.15s, box-shadow 0.15s; position:relative; }
+.prompt-card:hover { border-color:#1a1a2e; }
+.prompt-card.selected { border-color:#1565c0; box-shadow:0 0 0 3px rgba(21,101,192,0.15); }
+.prompt-card.dragging { opacity:0.4; }
+.prompt-card .pc-text { font-family:'SF Mono', Menlo, Consolas, monospace; font-size:0.8rem; color:#333; white-space:pre-wrap; line-height:1.5; }
+.prompt-card.correct { border-color:#2e7d32; background:#e8f5e9; }
+.prompt-card.wrong { border-color:#c62828; background:#ffebee; }
+.pc-verdict { font-size:0.75rem; font-weight:700; margin-top:6px; display:none; }
+.prompt-card.correct .pc-verdict, .prompt-card.wrong .pc-verdict { display:block; }
+.prompt-card.correct .pc-verdict { color:#2e7d32; }
+.prompt-card.wrong .pc-verdict { color:#c62828; }
+.buckets { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.75rem; }
+.bucket { border:1.5px solid #e0e0e0; border-radius:10px; padding:0.6rem; background:#fff; min-height:90px; transition:all 0.15s; }
+.bucket.dragover { border-color:#1565c0; background:#e3f2fd; }
+.bucket-title { font-size:0.8rem; font-weight:700; color:#1a1a2e; margin-bottom:0.5rem; padding-bottom:0.4rem; border-bottom:0.5px solid #eee; }
+.bucket .drop-zone { display:flex; flex-direction:column; gap:0.5rem; min-height:30px; }
+.btn-row { margin-top:1.4rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; }
+.btn { padding:0.7rem 1.4rem; border-radius:8px; font-size:0.9rem; cursor:pointer; font-weight:600; border:none; transition:all 0.2s; }
+.btn-primary { background:#1a1a2e; color:white; }
+.btn-primary:hover:not(:disabled) { background:#2d2d5e; }
+.btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
+.btn-ghost { background:white; border:1.5px solid #e0e0e0; color:#1d1d1f; }
+.btn-ghost:hover { border-color:#1a1a2e; }
+.score-line { margin-left:auto; font-size:0.95rem; font-weight:700; color:#1a1a2e; }
+.explain { display:none; margin-top:1.25rem; border-top:0.5px solid #e0e0e0; padding-top:1rem; }
+.explain.show { display:block; }
+.explain h4 { font-size:0.85rem; color:#1a1a2e; margin-bottom:0.5rem; }
+.explain ul { list-style:none; display:flex; flex-direction:column; gap:0.5rem; }
+.explain li { font-size:0.85rem; padding:0.5rem 0.75rem; background:#f8f9fa; border-left:3px solid #1a1a2e; border-radius:0 6px 6px 0; }
+.explain li b { color:#1a1a2e; }
+.hint { font-size:0.78rem; color:#888; margin-top:0.75rem; }
+:focus-visible { outline: 3px solid #1565c0; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 640px) { body { padding: 0.5rem; } }
+</style>
+</head>
+<body>
+<header>
+    <div class="eyebrow">TDL School · CT-GenAI · Chapter 2.1.2</div>
+    <h1>🧩 Technique Classifier</h1>
+    <p class="subtitle">Differentiate core prompting techniques — sort each prompt into the technique it demonstrates.</p>
+</header>
+
+<div class="card-shell">
+    <div class="q-meta">
+        <span class="badge badge-concept">Hands-on · sort</span>
+        <span class="badge badge-medium">Ch.2 · Prompt engineering</span>
+    </div>
+    <h2>Which technique is each prompt using?</h2>
+    <p class="intro">Tap a prompt to select it, then tap a bucket to drop it there (or drag it on desktop). One bucket can hold more than one prompt. When every card is placed, hit <b>Check answers</b>.</p>
+
+    <div class="tray-label">Unsorted prompts</div>
+    <div class="tray" id="tray" data-bucket="tray"></div>
+
+    <div class="buckets" id="buckets"></div>
+
+    <div class="btn-row">
+        <button class="btn btn-primary" id="check-btn" onclick="check()" disabled>✅ Check answers</button>
+        <button class="btn btn-ghost" onclick="reset()">↺ Reset</button>
+        <span class="score-line" id="score"></span>
+    </div>
+
+    <div class="explain" id="explain">
+        <h4>Rule of thumb for each technique</h4>
+        <ul>
+            <li><b>Zero-shot</b> — instruction only, <i>no</i> worked examples. You rely on the model's general training.</li>
+            <li><b>One-shot</b> — exactly <i>one</i> example is shown to anchor the format, then the model continues.</li>
+            <li><b>Few-shot</b> — <i>two or more</i> examples establish a pattern the model imitates.</li>
+            <li><b>Prompt chaining</b> — the prompt explicitly consumes the <i>output of a previous step</i> and pushes it forward.</li>
+            <li><b>Meta-prompting</b> — you ask the model to <i>write or improve a prompt</i>, not to solve the task directly.</li>
+        </ul>
+        <p class="hint">📚 Syllabus ref: GenAI-2.1.2 (K2) — Differentiate core prompting techniques for software testing.</p>
+    </div>
+</div>
+
+<script>
+const BUCKETS = [
+    { key:'zero',  title:'Zero-shot' },
+    { key:'one',   title:'One-shot' },
+    { key:'few',   title:'Few-shot' },
+    { key:'chain', title:'Prompt chaining' },
+    { key:'meta',  title:'Meta-prompting' }
+];
+
+const CARDS = [
+    { id:'c1', answer:'zero',
+      text:'You are a test analyst. Write boundary-value test cases for an age field that accepts 18–65. Output them as a table.',
+      why:'Instruction, role and output format — but no example is provided, so the model works purely from training.' },
+    { id:'c2', answer:'one',
+      text:'Example:\nTC1 | valid login | 200 OK\nNow write 5 more login test cases in exactly this format.',
+      why:'A single worked example anchors the format before the model continues — that is one-shot.' },
+    { id:'c3', answer:'few',
+      text:'Examples:\nTC1 | empty email | 400\nTC2 | wrong password | 401\nTC3 | valid login | 200\nFollowing this style, generate 5 more.',
+      why:'Multiple examples (three) set a pattern the model imitates — that is few-shot.' },
+    { id:'c4', answer:'chain',
+      text:'Using the test conditions you produced in the previous step, now create a concrete Gherkin scenario for each one.',
+      why:'It feeds the prior step\u2019s output into the next task — the defining move of prompt chaining.' },
+    { id:'c5', answer:'meta',
+      text:'Write an effective prompt I could give an LLM so it generates equivalence-partition test cases for a payment form. Make the constraints explicit.',
+      why:'You ask the model to produce a prompt, not to do the testing task itself — meta-prompting.' },
+    { id:'c6', answer:'chain',
+      text:'Take the prioritised test list from step 2 and convert the top 3 items into Playwright automation scripts.',
+      why:'Another chaining example — it consumes the output of an earlier step. Chaining is about data flow, not wording.' }
+];
+
+let placement = {};   // cardId -> bucketKey | 'tray'
+let selected = null;
+let checked = false;
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function render() {
+    // tray
+    const tray = document.getElementById('tray');
+    const bucketsEl = document.getElementById('buckets');
+    bucketsEl.innerHTML = BUCKETS.map(b =>
+        '<div class="bucket" data-bucket="'+b.key+'"><div class="bucket-title">'+b.title+'</div><div class="drop-zone" id="zone-'+b.key+'"></div></div>'
+    ).join('');
+    tray.innerHTML = '';
+
+    CARDS.forEach(card => {
+        const where = placement[card.id] || 'tray';
+        const el = document.createElement('div');
+        el.className = 'prompt-card';
+        el.id = card.id;
+        el.draggable = true;
+        el.innerHTML = '<div class="pc-text">'+card.text.replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div><div class="pc-verdict"></div>';
+        el.addEventListener('click', () => onCardClick(card.id));
+        el.addEventListener('dragstart', e => { selected = card.id; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+        el.addEventListener('dragend', () => el.classList.remove('dragging'));
+        if (selected === card.id) el.classList.add('selected');
+        if (where === 'tray') tray.appendChild(el);
+        else document.getElementById('zone-'+where).appendChild(el);
+    });
+
+    // wire drop targets
+    document.querySelectorAll('[data-bucket]').forEach(zone => {
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); if (selected) placeCard(selected, zone.dataset.bucket); });
+        zone.addEventListener('click', e => { if (e.target === zone || e.target.classList.contains('drop-zone') || e.target.classList.contains('bucket-title')) { if (selected) placeCard(selected, zone.dataset.bucket); } });
+    });
+
+    updateCheckBtn();
+}
+
+function onCardClick(id) {
+    if (checked) return;
+    selected = (selected === id) ? null : id;
+    render();
+}
+
+function placeCard(id, bucket) {
+    if (checked) return;
+    placement[id] = bucket;
+    selected = null;
+    render();
+}
+
+function updateCheckBtn() {
+    const allPlaced = CARDS.every(c => placement[c.id] && placement[c.id] !== 'tray');
+    document.getElementById('check-btn').disabled = !allPlaced || checked;
+}
+
+function check() {
+    checked = true;
+    let correct = 0;
+    CARDS.forEach(card => {
+        const el = document.getElementById(card.id);
+        const v = el.querySelector('.pc-verdict');
+        if (placement[card.id] === card.answer) {
+            el.classList.add('correct'); correct++;
+            v.textContent = '✓ Correct';
+        } else {
+            el.classList.add('wrong');
+            const right = BUCKETS.find(b => b.key === card.answer).title;
+            v.textContent = '✗ This is ' + right + '. ' + card.why;
+        }
+        el.draggable = false;
+    });
+    document.getElementById('score').textContent = correct + ' / ' + CARDS.length + ' correct';
+    document.getElementById('explain').classList.add('show');
+    document.getElementById('check-btn').disabled = true;
+}
+
+function reset() {
+    placement = {}; selected = null; checked = false;
+    document.getElementById('score').textContent = '';
+    document.getElementById('explain').classList.remove('show');
+    shuffle(CARDS);
+    render();
+}
+
+shuffle(CARDS);
+render();
+</script>
+</body>
+</html>
