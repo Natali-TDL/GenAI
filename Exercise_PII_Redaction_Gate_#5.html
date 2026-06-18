@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CT-GenAI Lab — PII Redaction Gate (Ch.3)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; padding: 1rem; max-width: 920px; margin: 0 auto; }
+header { padding: 1.5rem; background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; border-radius: 12px; margin-bottom: 1rem; }
+.eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; opacity: 0.55; margin-bottom: 6px; }
+header h1 { font-size: 1.5rem; }
+.subtitle { opacity: 0.8; font-size: 0.9rem; margin-top: 4px; }
+.card-shell { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+.q-meta { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.badge { font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 4px; }
+.badge-scenario { background: #fff3e0; color: #e65100; }
+.badge-hard { background: #ffebee; color: #b71c1c; }
+h2 { color: #1a1a2e; margin-bottom: 0.5rem; }
+.scenario-box { background: #f8f9fa; border-left: 4px solid #1a1a2e; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.9rem; border-radius: 0 6px 6px 0; }
+.scenario-box strong { display: block; font-size: 0.75rem; color: #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+label.field-label { font-size: 0.85rem; font-weight: 600; color: #1a1a2e; display: block; margin-bottom: 6px; }
+.prompt-textarea { width: 100%; min-height: 230px; padding: 0.75rem 1rem; border: 1.5px solid #e0e0e0; border-radius: 8px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85rem; line-height: 1.7; resize: vertical; color: #1d1d1f; background: #fff; }
+.prompt-textarea:focus { outline: none; border-color: #1a1a2e; }
+.scan-label { display:flex; align-items:center; justify-content:space-between; margin: 1.1rem 0 6px; }
+.scan-label span { font-size: 0.85rem; font-weight: 600; color: #1a1a2e; }
+.scan-mirror { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 0.75rem 1rem; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; background: #fafafa; min-height: 80px; }
+mark { border-radius: 3px; padding: 1px 3px; font-weight: 600; }
+.pii-email  { background:#ffcdd2; color:#9d2727; }
+.pii-card   { background:#f8bbd0; color:#880e4f; }
+.pii-cvv    { background:#e1bee7; color:#4a148c; }
+.pii-token  { background:#ffe0b2; color:#7c4a00; }
+.pii-url    { background:#bbdefb; color:#0d47a1; }
+.pii-ip     { background:#b3e5fc; color:#01579b; }
+.pii-phone  { background:#c8e6c9; color:#1b5e20; }
+.pii-name   { background:#fff9c4; color:#7c6f00; }
+.pii-iban   { background:#d7ccc8; color:#3e2723; }
+.status-card { display:flex; align-items:center; gap:12px; margin-top:1.1rem; padding: 0.85rem 1.1rem; border-radius: 10px; border:1.5px solid #e0e0e0; background:#f5f5f7; transition: all 0.2s; }
+.status-card.clean { border-color:#2e7d32; background:#e8f5e9; }
+.status-dot { width:14px; height:14px; border-radius:50%; background:#c62828; flex-shrink:0; box-shadow:0 0 0 4px rgba(198,40,40,0.15); }
+.status-card.clean .status-dot { background:#2e7d32; box-shadow:0 0 0 4px rgba(46,125,50,0.15); }
+.status-text { font-size:0.9rem; }
+.status-text strong { font-size:1.05rem; }
+.detected-list { margin-top: 1rem; display:none; }
+.detected-list.show { display:block; }
+.detected-list h4 { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; color:#888; margin-bottom:0.5rem; }
+.chip-row { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { font-size:0.75rem; font-weight:600; padding:4px 9px; border-radius:20px; border:1px solid rgba(0,0,0,0.08); }
+.btn-row { margin-top: 1.25rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; }
+.btn { padding: 0.7rem 1.4rem; border-radius: 8px; font-size: 0.9rem; cursor: pointer; font-weight: 600; border:none; transition: all 0.2s; }
+.btn-primary { background:#1a1a2e; color:white; }
+.btn-primary:hover:not(:disabled) { background:#2d2d5e; }
+.btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
+.btn-ghost { background:white; border:1.5px solid #e0e0e0; color:#1d1d1f; }
+.btn-ghost:hover { border-color:#1a1a2e; }
+.success-panel { display:none; margin-top:1.25rem; border:1.5px solid #a5d6a7; background:#e8f5e9; border-radius:10px; padding:1.1rem 1.25rem; }
+.success-panel.show { display:block; }
+.success-panel h3 { color:#1b5e20; font-size:1rem; margin-bottom:0.4rem; }
+.success-panel p { font-size:0.88rem; color:#2e4d30; }
+.legend { margin-top:1.25rem; padding-top:1rem; border-top:0.5px solid #e0e0e0; font-size:0.78rem; color:#888; }
+.legend b { color:#555; }
+:focus-visible { outline: 3px solid #1565c0; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 640px) { body { padding: 0.5rem; } }
+</style>
+</head>
+<body>
+<header>
+    <div class="eyebrow">TDL School · CT-GenAI · Chapter 3</div>
+    <h1>🔐 PII Redaction Gate</h1>
+    <p class="subtitle">Data Privacy &amp; Security — you cannot send the prompt until every piece of sensitive data is masked.</p>
+</header>
+
+<div class="card-shell">
+    <div class="q-meta">
+        <span class="badge badge-scenario">Hands-on · gate</span>
+        <span class="badge badge-hard">Ch.3 · Data privacy &amp; security</span>
+    </div>
+    <h2>Clean the prompt before it leaves your machine</h2>
+    <div class="scenario-box">
+        <strong>Scenario</strong>
+        A teammate drafted this prompt to send to a <em>public, third-party LLM</em> to help reproduce a customer's failed money transfer. It is full of production data that must never leave the bank's boundary. Redact every sensitive item — replace each with a placeholder such as <code>[EMAIL]</code>, <code>[CARD]</code>, <code>[REDACTED]</code> — until the gate turns green.
+    </div>
+
+    <label class="field-label" for="prompt">The prompt (edit to redact):</label>
+    <textarea id="prompt" class="prompt-textarea" oninput="scan()" spellcheck="false"></textarea>
+
+    <div class="scan-label">
+        <span>Live scan</span>
+        <button class="btn btn-ghost" style="padding:0.35rem 0.8rem;font-size:0.8rem" onclick="resetPrompt()">↺ Reset to original</button>
+    </div>
+    <div id="mirror" class="scan-mirror" aria-live="polite"></div>
+
+    <div class="status-card" id="status">
+        <div class="status-dot"></div>
+        <div class="status-text"><strong id="status-count">—</strong><span id="status-msg"> sensitive items still in the prompt</span></div>
+    </div>
+
+    <div class="detected-list" id="detected">
+        <h4>Detected categories</h4>
+        <div class="chip-row" id="chips"></div>
+    </div>
+
+    <div class="btn-row">
+        <button class="btn btn-primary" id="send-btn" disabled onclick="send()">🚀 Send to LLM</button>
+        <button class="btn btn-ghost" onclick="maskAll()">Auto-mask all (show me)</button>
+    </div>
+
+    <div class="success-panel" id="success">
+        <h3>✅ Prompt cleared — safe to send</h3>
+        <p>Nice work. The takeaway from Chapter 3: never paste production credentials, payment data, or personal data into a public LLM. Mask it, swap in synthetic/test data, or use an enterprise model with a data-processing agreement. Confident-looking output is no excuse for leaking PII — the privacy obligation sits with the tester, not the tool.</p>
+    </div>
+
+    <div class="legend">
+        <b>What the scanner looks for:</b> email addresses, payment card numbers (PAN), CVV codes, IBAN/account numbers, phone numbers, API keys / bearer tokens, internal hostnames &amp; IP addresses, and named individuals. Replacing the value with any placeholder removes the flag.
+    </div>
+</div>
+
+<script>
+const ORIGINAL =
+`You are a support assistant. A customer, Maria Gonzalez, reported a failed money
+transfer. Generate 3 test cases that reproduce her issue.
+
+Customer details:
+- Email: maria.gonzalez@globalmail.com
+- Phone: +44 7700 900423
+- Card: 4539 1488 0343 6467
+- CVV: 833
+- IBAN: GB29NWBK60161331926819
+
+Pull the transaction log from the internal API:
+- Endpoint: https://payments.internal.bank.local/v2/transactions
+- Server IP: 10.42.18.7
+- Auth: Bearer sk_live_5f8Hk2Lp9QwErTyUiOaSdFgHjKlZxCvB`;
+
+// Detection rules. Order matters: earlier rules win on overlap.
+const RULES = [
+    { cat:'API key / token', cls:'pii-token', re:/\b(?:sk|pk)_[a-z]+_[A-Za-z0-9]{12,}\b/g },
+    { cat:'IBAN / account',  cls:'pii-iban',  re:/\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/g },
+    { cat:'Payment card',    cls:'pii-card',  re:/\b(?:\d[ -]?){15,16}\b/g },
+    { cat:'CVV',             cls:'pii-cvv',   re:/CVV\s*:?\s*\d{3,4}\b/gi },
+    { cat:'Email address',   cls:'pii-email', re:/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g },
+    { cat:'Internal URL',    cls:'pii-url',   re:/https?:\/\/[^\s]*(?:internal|intranet|corp|\.local)[^\s]*/gi },
+    { cat:'IP address',      cls:'pii-ip',    re:/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g },
+    { cat:'Phone number',    cls:'pii-phone', re:/\+?\d[\d ()-]{8,}\d/g },
+    { cat:'Person name',     cls:'pii-name',  re:/\bMaria Gonzalez\b/g }
+];
+
+function findMatches(text) {
+    let raw = [];
+    RULES.forEach(rule => {
+        rule.re.lastIndex = 0;
+        let m;
+        while ((m = rule.re.exec(text)) !== null) {
+            if (m[0].length === 0) { rule.re.lastIndex++; continue; }
+            raw.push({ start: m.index, end: m.index + m[0].length, cat: rule.cat, cls: rule.cls });
+        }
+    });
+    // resolve overlaps: sort by start, then by rule priority (already in push order is lost, so sort by start then length desc)
+    raw.sort((a,b) => a.start - b.start || (b.end-b.start)-(a.end-a.start));
+    const kept = [];
+    let lastEnd = -1;
+    for (const mt of raw) {
+        if (mt.start >= lastEnd) { kept.push(mt); lastEnd = mt.end; }
+    }
+    return kept;
+}
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function scan() {
+    const text = document.getElementById('prompt').value;
+    const matches = findMatches(text);
+
+    // build highlighted mirror
+    let html = '', cursor = 0;
+    matches.forEach(mt => {
+        html += esc(text.slice(cursor, mt.start));
+        html += '<mark class="'+mt.cls+'">' + esc(text.slice(mt.start, mt.end)) + '</mark>';
+        cursor = mt.end;
+    });
+    html += esc(text.slice(cursor));
+    document.getElementById('mirror').innerHTML = html || '<span style="color:#bbb">(empty)</span>';
+
+    // status
+    const n = matches.length;
+    document.getElementById('status-count').textContent = n;
+    const status = document.getElementById('status');
+    const msg = document.getElementById('status-msg');
+    const sendBtn = document.getElementById('send-btn');
+    if (n === 0) {
+        status.classList.add('clean');
+        msg.textContent = ' — prompt is clean';
+        sendBtn.disabled = false;
+    } else {
+        status.classList.remove('clean');
+        msg.textContent = n === 1 ? ' sensitive item still in the prompt' : ' sensitive items still in the prompt';
+        sendBtn.disabled = true;
+        document.getElementById('success').classList.remove('show');
+    }
+
+    // chips of distinct categories present
+    const cats = {};
+    matches.forEach(m => { cats[m.cat] = (cats[m.cat]||0)+1; cats['__cls_'+m.cat] = m.cls; });
+    const distinct = Object.keys(cats).filter(k => !k.startsWith('__cls_'));
+    const detected = document.getElementById('detected');
+    const chips = document.getElementById('chips');
+    if (distinct.length) {
+        chips.innerHTML = distinct.map(c =>
+            '<span class="chip '+cats['__cls_'+c]+'">'+c+' · '+cats[c]+'</span>').join('');
+        detected.classList.add('show');
+    } else {
+        detected.classList.remove('show');
+    }
+}
+
+function send() {
+    document.getElementById('success').classList.add('show');
+    document.getElementById('success').scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function maskAll() {
+    let text = document.getElementById('prompt').value;
+    // apply placeholders by category, repeatedly until stable
+    const repl = [
+        [/\b(?:sk|pk)_[a-z]+_[A-Za-z0-9]{12,}\b/g, '[API_TOKEN]'],
+        [/\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/g, '[IBAN]'],
+        [/\b(?:\d[ -]?){15,16}\b/g, '[CARD]'],
+        [/CVV\s*:?\s*\d{3,4}\b/gi, 'CVV: [REDACTED]'],
+        [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[EMAIL]'],
+        [/https?:\/\/[^\s]*(?:internal|intranet|corp|\.local)[^\s]*/gi, '[INTERNAL_URL]'],
+        [/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[IP]'],
+        [/\+?\d[\d ()-]{8,}\d/g, '[PHONE]'],
+        [/\bMaria Gonzalez\b/g, '[CUSTOMER_NAME]']
+    ];
+    repl.forEach(([re, ph]) => { text = text.replace(re, ph); });
+    document.getElementById('prompt').value = text;
+    scan();
+}
+
+function resetPrompt() {
+    document.getElementById('prompt').value = ORIGINAL;
+    document.getElementById('success').classList.remove('show');
+    scan();
+}
+
+resetPrompt();
+</script>
+</body>
+</html>
