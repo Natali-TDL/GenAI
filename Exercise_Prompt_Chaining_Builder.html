@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CT-GenAI Lab — Prompt Chaining Builder (Ch.2.2)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; padding: 1rem; max-width: 860px; margin: 0 auto; }
+header { padding: 1.5rem; background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; border-radius: 12px; margin-bottom: 1rem; }
+.eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; opacity: 0.55; margin-bottom: 6px; }
+header h1 { font-size: 1.5rem; }
+.subtitle { opacity: 0.8; font-size: 0.9rem; margin-top: 4px; }
+.card-shell { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+.q-meta { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.badge { font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 4px; }
+.badge-concept { background: #ede7f6; color: #4527a0; }
+.badge-medium { background: #fff8e1; color: #f57f17; }
+h2 { color: #1a1a2e; margin-bottom: 0.5rem; }
+.intro { font-size: 0.9rem; margin-bottom: 1.1rem; }
+.intro b { color:#1a1a2e; }
+.chain { display:flex; flex-direction:column; gap:0; }
+.step-wrap { position:relative; }
+.connector { width:2px; height:18px; background:#cfcfdb; margin:0 auto; }
+.step { display:flex; align-items:stretch; gap:10px; border:1.5px solid #e0e0e0; border-radius:10px; background:#fff; padding:0.7rem 0.8rem; cursor:grab; transition:border-color 0.15s, box-shadow 0.15s; }
+.step.dragging { opacity:0.4; }
+.step.ai { border-left:5px solid #4527a0; }
+.step.check { border-left:5px solid #2e7d32; background:#fbfdfb; }
+.step-icon { font-size:1.1rem; flex-shrink:0; width:24px; text-align:center; }
+.step-body { flex:1; }
+.step-kind { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+.step.ai .step-kind { color:#4527a0; }
+.step.check .step-kind { color:#2e7d32; }
+.step-text { font-size:0.9rem; color:#1d1d1f; }
+.step-ctrls { display:flex; flex-direction:column; gap:4px; justify-content:center; }
+.mv { width:28px; height:24px; border:1px solid #e0e0e0; background:#f7f7f9; border-radius:6px; cursor:pointer; font-size:0.7rem; line-height:1; color:#555; }
+.mv:hover:not(:disabled) { border-color:#1a1a2e; background:#fff; }
+.mv:disabled { opacity:0.3; cursor:not-allowed; }
+.warn-bridge { font-size:0.75rem; font-weight:600; color:#b71c1c; background:#ffebee; border:1px dashed #ef9a9a; border-radius:6px; padding:3px 8px; margin:6px auto; width:fit-content; display:flex; align-items:center; gap:5px; }
+.status { margin-top:1.25rem; padding:0.9rem 1.1rem; border-radius:10px; border:1.5px solid #e0e0e0; background:#f5f5f7; font-size:0.9rem; transition:all 0.2s; }
+.status.ok { border-color:#2e7d32; background:#e8f5e9; color:#1b5e20; }
+.status.warn { border-color:#f57f17; background:#fffde7; color:#7a5c00; }
+.status.err { border-color:#c62828; background:#ffebee; color:#8e1414; }
+.status b { display:block; margin-bottom:0.2rem; }
+.status ul { margin:0.3rem 0 0 1.1rem; font-size:0.85rem; }
+.btn-row { margin-top:1.25rem; display:flex; gap:0.5rem; flex-wrap:wrap; }
+.btn { padding:0.7rem 1.4rem; border-radius:8px; font-size:0.9rem; cursor:pointer; font-weight:600; border:none; transition:all 0.2s; }
+.btn-ghost { background:white; border:1.5px solid #e0e0e0; color:#1d1d1f; }
+.btn-ghost:hover { border-color:#1a1a2e; }
+.hint { font-size:0.78rem; color:#888; margin-top:1rem; padding-top:0.75rem; border-top:0.5px solid #e0e0e0; }
+:focus-visible { outline: 3px solid #1565c0; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 640px) { body { padding: 0.5rem; } }
+</style>
+</head>
+<body>
+<header>
+    <div class="eyebrow">TDL School · CT-GenAI · Chapter 2.2</div>
+    <h1>🔗 Prompt Chaining Builder</h1>
+    <p class="subtitle">Sequence a multi-step chain — and keep a human-verification checkpoint at every handoff.</p>
+</header>
+
+<div class="card-shell">
+    <div class="q-meta">
+        <span class="badge badge-concept">Hands-on · sequence</span>
+        <span class="badge badge-medium">Ch.2.2 · Chaining &amp; human verification</span>
+    </div>
+    <h2>Order the chain for &ldquo;user story → prioritised test cases&rdquo;</h2>
+    <p class="intro">Each AI step feeds the next. The rule from the syllabus: <b>never pipe one AI step's output straight into another without a human verifying it first.</b> Reorder the cards with the ↑ ↓ buttons (or drag on desktop). The validator below updates live and flags any AI&#8594;AI handoff with no checkpoint between them.</p>
+
+    <div class="chain" id="chain"></div>
+
+    <div class="status" id="status"></div>
+
+    <div class="btn-row">
+        <button class="btn btn-ghost" onclick="shuffleReset()">↺ Shuffle &amp; restart</button>
+    </div>
+
+    <p class="hint">📚 Syllabus ref: HO-2.2.1b &amp; HO-2.2.2c — prompt chaining with human verification to progressively analyse a user story, generate test cases, and prioritise them.</p>
+</div>
+
+<script>
+// Canonical chain: AI step -> its verification checkpoint -> next AI step ...
+const CANON = [
+    { id:'a',  kind:'ai',    text:'Analyse the user story (actors, rules, gaps)' },
+    { id:'v1', kind:'check', text:'Verify the analysis & flag missing assumptions' },
+    { id:'b',  kind:'ai',    text:'Derive test conditions from the analysis' },
+    { id:'v2', kind:'check', text:'Review & refine the test conditions' },
+    { id:'c',  kind:'ai',    text:'Generate Gherkin test cases for each condition' },
+    { id:'v3', kind:'check', text:'Review the generated test cases' },
+    { id:'d',  kind:'ai',    text:'Prioritise the test suite by risk & dependency' },
+    { id:'v4', kind:'check', text:'Confirm the prioritisation before execution' }
+];
+const AI_ORDER = ['a','b','c','d'];
+const ICON = { ai:'🤖', check:'👤' };
+const KIND_LABEL = { ai:'AI step', check:'Human verification' };
+
+let order = [];
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function shuffleReset() {
+    do { order = shuffle(CANON.map(s=>s.id)); }
+    while (order.join() === CANON.map(s=>s.id).join()); // avoid starting solved
+    render();
+}
+
+function move(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    render();
+}
+
+let dragId = null;
+function render() {
+    const chain = document.getElementById('chain');
+    chain.innerHTML = '';
+    order.forEach((id, i) => {
+        const step = CANON.find(s => s.id === id);
+        const wrap = document.createElement('div');
+        wrap.className = 'step-wrap';
+
+        const row = document.createElement('div');
+        row.className = 'step ' + step.kind;
+        row.draggable = true;
+        row.innerHTML =
+            '<div class="step-icon">'+ICON[step.kind]+'</div>'+
+            '<div class="step-body"><div class="step-kind">'+KIND_LABEL[step.kind]+'</div><div class="step-text">'+step.text+'</div></div>'+
+            '<div class="step-ctrls">'+
+              '<button class="mv" '+(i===0?'disabled':'')+' aria-label="Move up">▲</button>'+
+              '<button class="mv" '+(i===order.length-1?'disabled':'')+' aria-label="Move down">▼</button>'+
+            '</div>';
+        const [up, down] = row.querySelectorAll('.mv');
+        up.onclick = () => move(i, -1);
+        down.onclick = () => move(i, 1);
+        row.addEventListener('dragstart', e => { dragId = id; row.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+        row.addEventListener('dragend', () => row.classList.remove('dragging'));
+        row.addEventListener('dragover', e => e.preventDefault());
+        row.addEventListener('drop', e => {
+            e.preventDefault();
+            if (!dragId || dragId === id) return;
+            const from = order.indexOf(dragId);
+            const to = order.indexOf(id);
+            order.splice(from, 1);
+            order.splice(to, 0, dragId);
+            dragId = null;
+            render();
+        });
+        wrap.appendChild(row);
+
+        // connector + per-gap warning (AI immediately followed by AI)
+        if (i < order.length - 1) {
+            const nextStep = CANON.find(s => s.id === order[i+1]);
+            if (step.kind === 'ai' && nextStep.kind === 'ai') {
+                const w = document.createElement('div');
+                w.className = 'warn-bridge';
+                w.innerHTML = '⚠ Unverified AI output feeding the next step';
+                wrap.appendChild(w);
+            } else {
+                const c = document.createElement('div');
+                c.className = 'connector';
+                wrap.appendChild(c);
+            }
+        }
+        chain.appendChild(wrap);
+    });
+    validate();
+}
+
+function validate() {
+    const status = document.getElementById('status');
+    const issues = [];
+
+    // 1. AI relative order
+    const aiSeq = order.filter(id => CANON.find(s=>s.id===id).kind === 'ai');
+    const orderOk = aiSeq.join() === AI_ORDER.join();
+    if (!orderOk) issues.push('The AI tasks are out of order. Correct flow: analyse → derive conditions → generate cases → prioritise.');
+
+    // 2. checkpoint between consecutive AI steps
+    const missing = [];
+    for (let i = 0; i < order.length - 1; i++) {
+        const cur = CANON.find(s=>s.id===order[i]);
+        const nxt = CANON.find(s=>s.id===order[i+1]);
+        if (cur.kind === 'ai' && nxt.kind === 'ai') {
+            missing.push('"'+cur.text.split(' (')[0]+'" → "'+nxt.text.split(' (')[0]+'"');
+        }
+    }
+    if (missing.length) {
+        issues.push('No human verification between: ' + missing.join('; ') + '. Insert a checkpoint before that output is reused.');
+    }
+
+    const exact = order.join() === CANON.map(s=>s.id).join();
+
+    if (exact) {
+        status.className = 'status ok';
+        status.innerHTML = '<b>✅ Valid chain.</b> Every AI handoff is gated by a human-verification step — analysis, conditions, cases and prioritisation are each reviewed before feeding forward. This is the chaining + human-in-the-loop pattern from the syllabus.';
+    } else if (!issues.length) {
+        // ordering valid and no missing checkpoints, but not the canonical arrangement
+        status.className = 'status warn';
+        status.innerHTML = '<b>Almost — order is valid and every handoff is verified.</b> A checkpoint is just sitting in an unusual spot. Pair each AI step with the verification that reviews <i>its</i> output for the cleanest chain.';
+    } else if (missing.length && orderOk) {
+        status.className = 'status warn';
+        status.innerHTML = '<b>⚠ Human-in-the-loop broken.</b><ul>' + issues.map(x=>'<li>'+x+'</li>').join('') + '</ul>';
+    } else {
+        status.className = 'status err';
+        status.innerHTML = '<b>Not valid yet.</b><ul>' + issues.map(x=>'<li>'+x+'</li>').join('') + '</ul>';
+    }
+}
+
+shuffleReset();
+</script>
+</body>
+</html>
